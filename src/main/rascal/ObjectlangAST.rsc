@@ -14,6 +14,7 @@ data Expression
     | modulo(Expression left, Expression right)
     | stringLiteral(list[StringPart] parts)
     | power(Expression left, Expression right)
+    | charLiteral(str character)
     | unaryMinus(Expression operand)
     | unaryNeg(Expression operand)
     | identifier(str name)
@@ -80,7 +81,12 @@ data Declaration
 // Tipos simples y genéricos
 data TypeNode
     = simpleType(str name)
-    | genericType(str name, list[TypeNode] typeArgs);
+    | genericType(str name, list[TypeNode] typeArgs)
+    | tInt()
+    | tBool()
+    | tChar()
+    | tString()
+    ; 
 
 // Parámetros
 data GenericParameter

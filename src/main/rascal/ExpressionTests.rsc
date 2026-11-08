@@ -22,6 +22,31 @@ test bool testIdentifier() =
 test bool testBoolean() =
     booleanLiteral(true) == cleanAST(convertExpression("true"));
 
+test bool testCharLiteral() = 
+    cleanAST(convertExpression("\'a\'")) == charLiteral("a");
+
+// Prueba negativa: Objectilang no soporta caracteres de escape
+test bool testCharLiteralEscaped() = 
+    rejectsExpression("\'\\n\'");
+
+// Cadenas combinadas de accesos y llamadas: a.b(c).d
+test bool testChainedMemberAndCall() =
+    memberAccess(
+        call(
+            memberAccess(identifier("a"), "b"),
+            [identifier("c")]
+        ),
+        "d"
+    ) == cleanAST(convertExpression("a.b(c).d"));
+
+// Llamadas encadenadas: f(1, 2)(3)
+test bool testChainedCalls() =
+    call(
+        call(identifier("f"), [number(1), number(2)]),
+        [number(3)]
+    ) == cleanAST(convertExpression("f(1, 2)(3)"));
+
+
 test bool testTypeIdentifier() =
     typeIdentifier("Persona") == cleanAST(convertExpression("Persona"));
 

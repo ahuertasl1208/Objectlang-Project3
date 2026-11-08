@@ -90,6 +90,14 @@ Declaration convertDeclaration(Tree current) {
 // =======================================================
 
 TypeNode convertType(Tree current) {
+
+    // Determinar etiquetas de tipos 
+    if (appl(prod(label("tInt", _), _, _), _) := current) return tInt();
+    if (appl(prod(label("tBool", _), _, _), _) := current) return tBool();
+    if (appl(prod(label("tChar", _), _, _), _) := current) return tChar();
+    if (appl(prod(label("tString", _), _, _), _) := current) return tString();
+
+
     if (appl(prod(label("simpleType", _), _, _), _) := current) {
         return simpleType(implode(#str, current.args[0]));
     }

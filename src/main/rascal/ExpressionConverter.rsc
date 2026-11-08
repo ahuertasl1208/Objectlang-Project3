@@ -122,6 +122,14 @@ Expression convertExprTree(
 
         return stringLiteral(parts);
     }
+
+    if (appl(prod(label("charLiteral", _), _, _), _) := current) {
+        str rawText = unparse(current); // Da algo como "'a'"
+        return charLiteral(rawText[1..-1]); // Se queda con "a"
+    
+    }
+
+
    
     if (appl(prod(sort("Postfix"), _, _), _) := current) {
         if (size(current.args) == 1) {

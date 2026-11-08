@@ -45,6 +45,46 @@ test bool testRejectObjectAnimal() =
 test bool testRejectMethodMain() = 
     rejectsProgram("methodmain { }");
 
+/// val con primitivo
+test bool testValPrimitive() =
+    cleanAST(convertProgram("method main { val x : Int = 5 }")) ==
+    moduleProgram([], 
+        exprStmt(blockExpression(blockNode([
+            valDecl("x", [tInt()], number(5))
+        ])))
+    );
+
+// Parámetro de método con primitivo
+test bool testMethodParamPrimitive() =
+    cleanAST(convertProgram("object Foo Foo.bar = method (x : Bool) : String method main { }")) ==
+    moduleProgram([
+        objectDeclaration("Foo", [], [], []),
+        methodAssignment("Foo", "bar", 
+            methodDefinition([methodParameter("x", tBool())], [tString()], [])
+        )
+    ], 
+        exprStmt(blockExpression(blockNode([])))
+    );
+
+// Parámetro de constructor con primitivo
+test bool testConstructorParamPrimitive() =
+    cleanAST(convertProgram("object P(val n : Char) method main { }")) ==
+    moduleProgram([
+        objectDeclaration("P", [], [], [
+            constructorParameter("val", "n", tChar())
+        ])
+    ], 
+        exprStmt(blockExpression(blockNode([])))
+    );
+
+// Genérico con primitivo
+test bool testGenericPrimitive() =
+    cleanAST(convertProgram("method main { val l : List[String] = x }")) ==
+    moduleProgram([], 
+        exprStmt(blockExpression(blockNode([
+            valDecl("l", [genericType("List", [tString()])], identifier("x"))
+        ])))
+    );
 // ==========================================
 // PRUEBAS POSITIVAS (Aserciones exactas de AST)
 // ==========================================
