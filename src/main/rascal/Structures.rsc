@@ -17,9 +17,16 @@ syntax OverrideDef
 syntax ClassBody 
   = classBody: "{" OverrideDef+ overrides "}";
 
+// Se agregan explicitamente los tipos que se pueden tener para ser definidos
 syntax Type 
-  = simpleType: TypeIdentifier name
+  = tInt: "Int" !>> [a-zA-Z0-9_]
+  | tBool: "Bool" !>> [a-zA-Z0-9_]
+  | tChar: "Char" !>> [a-zA-Z0-9_]
+  | tString: "String" !>> [a-zA-Z0-9_]
+  | simpleType: TypeIdentifier name
   | genericType: TypeIdentifier name "[" {Type ","}+ "]" typeArgs;
+
+
 syntax TypeAnnotation 
   = typeAnnDef: ":" Type type;
 

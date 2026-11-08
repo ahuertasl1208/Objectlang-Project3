@@ -34,10 +34,12 @@ lexical StringItems = StringContent*;
 syntax StringLiteral =
     @category="string" stringLiteral: "\"" StringItems "\"";
 
+// CharLiteral agregado para soportar literales de un solo caracter
 syntax Primary =
     number: IntLiteral
   | identifier: Identifier
   | typeIdentifier: TypeIdentifier
+  | charLiteral: CharLiteral
   | booleanLiteral: BoolLiteral
   | StringLiteral
   | grouped: "(" Expr ")"

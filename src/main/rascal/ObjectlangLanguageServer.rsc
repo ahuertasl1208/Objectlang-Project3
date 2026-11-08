@@ -10,7 +10,7 @@ set[LanguageService] objectlangServices() = {
     parsing(parser(#start[Module]))
 };
 
-// Registrar archivos .objl como programas Objectlang.
+// Registrar archivos .ol como programas Objectlang.
 void main() {
     registerLanguage(
         language(
@@ -19,7 +19,7 @@ void main() {
                 mode=interpreter_external()
             ),
             "Objectlang",
-            {"objl"},
+            {"ol"},
             "ObjectlangLanguageServer",
             "objectlangServices"
         )

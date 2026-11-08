@@ -12,12 +12,16 @@ keyword Keywords =
   | "and" | "or" | "neg"
   ;
 
+// Agregar palabras reservadas para los tipos de datos requeridos
+keyword TypeKeywords = "Int" | "Bool" | "Char" | "String";
+
 // Identificadores
 lexical Identifier =
     ([a-z][a-zA-Z0-9_]* !>> [a-zA-Z0-9_]) \ Keywords;
 
+// No dejamos que los identificadores de tipo sean palabras reservadas
 lexical TypeIdentifier =
-    [A-Z][a-zA-Z0-9_]* !>> [a-zA-Z0-9_];
+    ([A-Z][a-zA-Z0-9_]* !>> [a-zA-Z0-9_]) \ TypeKeywords;
 
 start syntax TypeIdentifierTest = TypeIdentifier;
 
@@ -31,6 +35,12 @@ syntax BoolLiteral = "true" | "false";
 // Reglas temporales de prueba
 start syntax IntegerTest = IntLiteral;
 start syntax BooleanTest = BoolLiteral;
+
+// Literales de un solo caracter
+lexical CharLiteral =
+    @category="String" [\'] ![\'\n\r] [\'];
+    
+start syntax CharTest = CharLiteral;
 
 lexical SimpleStringChar = ![\"\\$];
 
