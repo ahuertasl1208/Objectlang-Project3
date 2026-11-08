@@ -242,10 +242,7 @@ Expression convertNew(Tree current) {
     if (appl(prod(label("newWithArgs", _), _, _), _) := current) {
         TypeNode t = convertType(current.args[2]);
 
-        list[Expression] arguments = [];
-        if (appl(regular(opt(_)), [Tree argTree]) := current.args[6]) {
-            arguments = convertArgExpressions(argTree, convertStructuralExpr);
-        }
+        list[Expression] arguments = convertArgExpressions(current.args[6], convertStructuralExpr);
 
         list[OverrideDefinition] overrides = [];
         if (appl(regular(opt(_)), [Tree bodyTree]) := current.args[10]) {

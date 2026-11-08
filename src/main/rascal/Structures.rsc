@@ -3,7 +3,7 @@ module Structures
 extend Expressions;
   
 syntax NewExpr
-    = newWithArgs: "new" Type "(" ArgList? ")" ClassBody?
+    = newWithArgs: "new" Type "(" {Expr ","}* ")" ClassBody?
     | newWithBody: "new" Type ClassBody
     | newWithoutArgs: "new" Type !>> "("
     ;
@@ -32,6 +32,7 @@ syntax TypeAnnotation
 
 syntax ValDecl =
     valDecl: ValKeyword Identifier name TypeAnnotation? typeAnn "=" Expr expr;
+
 syntax VarDecl 
   = varDecl: "var" Identifier name TypeAnnotation? typeAnn "=" Expr expr;
 

@@ -46,9 +46,11 @@ syntax Primary =
   ;
 
 syntax Postfix
-    = Primary
-    | Primary PostfixOp+
-    ;
+  = Primary
+  | memberAccess: Postfix "." Identifier
+  | call: Postfix "(" {Expr ","}* ")"
+  ;
+
 
 syntax UnaryExpr =
     Postfix
@@ -132,15 +134,3 @@ syntax ExprInterpolation =
 start syntax ExprInterpolationTest =
     ExprInterpolation;
 
-syntax ArgList =
-    Expr ("," Expr)*;
-
-start syntax ArgListTest =
-    ArgList;
-
-syntax PostfixOp =
-    "." Identifier
-  | "(" ArgList? ")"
-  ;
-
-start syntax PostfixOpTest = PostfixOp;

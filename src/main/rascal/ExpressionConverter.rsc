@@ -12,6 +12,7 @@ Expression convertExpression(str input) {
     return convertExprTree(parsed.top);
 }
 
+
 // Conversión estructural predeterminada.
 // El conversor independiente de expresiones no admite
 // nodos que pertenecen exclusivamente a Structures.
@@ -121,43 +122,28 @@ Expression convertExprTree(
 
         return stringLiteral(parts);
     }
-
-    // Postfix: primero convertir Primary.
-
-    // Acceso a miembros y llamadas a funciones
+   
     if (appl(prod(sort("Postfix"), _, _), _) := current) {
-
-        Expression result = convertExprTree(current.args[0], convertStructural);
-
-        // Postfix sin operaciones: solo Primary
         if (size(current.args) == 1) {
-            return result;
+            return convertExprTree(current.args[0], convertStructural);
         }
-
-        list[Tree] operations = [
-            op | op <- current.args[2].args,
-            appl(prod(sort("PostfixOp"), _, _), _) := op
-        ];
-
-        for (op <- operations) {
-
-            // Ejemplo: persona.edad
-            if (appl(prod(lit("."), _, _), _) := op.args[0]) {
-                str name = implode(#str, op.args[2]);
-                result = memberAccess(result, name);
-            }
-
-            // Ejemplo: calcular(5, x + 2)
-            else if (appl(prod(lit("("), _, _), _) := op.args[0]) {
-                list[Expression] arguments =
-                    convertArgExpressions(op.args[2], convertStructural);
-
-                result = call(result, arguments);
-            }
-        }
-
-        return result;
+        throw "Caso Postfix inesperado"; // El resto ya lo manejan los label abajo
     }
+
+    // Acceso a miembros 
+    if (appl(prod(label("memberAccess", _), _, _), _) := current) {
+        Expression base = convertExprTree(current.args[0], convertStructural);
+        str name = implode(#str, current.args[4]);
+        return memberAccess(base, name);
+    }
+
+    //  Llamadas a funciones o métodos 
+    if (appl(prod(label("call", _), _, _), _) := current) {
+        Expression base = convertExprTree(current.args[0], convertStructural);
+        list[Expression] arguments = convertArgExpressions(current.args[4], convertStructural);
+        return call(base, arguments);
+    }
+
 
     // Comparaciones
     if (appl(prod(label("lessThan", _), _, _), _) := current) {
