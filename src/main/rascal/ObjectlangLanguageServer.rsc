@@ -15,7 +15,7 @@ void main() {
     registerLanguage(
         language(
             getProjectPathConfig(
-                |project://objectlang-project2|,
+                |project://objectlang-project3|,
                 mode=interpreter_external()
             ),
             "Objectlang",
