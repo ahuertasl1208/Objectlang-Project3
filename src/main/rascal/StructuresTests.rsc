@@ -85,6 +85,16 @@ test bool testGenericPrimitive() =
             valDecl("l", [genericType("List", [tString()])], identifier("x"))
         ])))
     );
+
+test bool testNewAsStatement() =
+    moduleProgram(
+        [],
+        exprStmt(blockExpression(blockNode([
+            exprStmt(newObject(simpleType("Dog"), [], []))
+        ])))
+    ) == cleanAST(convertProgram("method main { new Dog }"));
+
+    
 // ==========================================
 // PRUEBAS POSITIVAS (Aserciones exactas de AST)
 // ==========================================

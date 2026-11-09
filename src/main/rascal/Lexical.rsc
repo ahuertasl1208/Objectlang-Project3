@@ -38,7 +38,7 @@ start syntax BooleanTest = BoolLiteral;
 
 // Literales de un solo caracter
 lexical CharLiteral =
-    @category="String" [\'] ![\'\n\r] [\'];
+    @category="string" [\'] ![\'\n\r] [\'];
     
 start syntax CharTest = CharLiteral;
 

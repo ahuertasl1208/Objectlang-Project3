@@ -190,9 +190,8 @@ Statement convertStatement(Tree current) {
     }
 
     if (appl(prod(sort("Expr"), _, _), _) := current) {
-        return exprStmt(convertExprTree(current));
+        return exprStmt(convertExprTree(current, convertStructuralExpr));
     }
-
     throw "Statement no soportado: <current>";
 }
 

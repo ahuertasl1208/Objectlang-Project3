@@ -31,7 +31,7 @@ syntax StringContent =
 lexical StringItems = StringContent*;
 
 // String completo
-syntax StringLiteral =
+lexical StringLiteral =
     @category="string" stringLiteral: "\"" StringItems "\"";
 
 // CharLiteral agregado para soportar literales de un solo caracter

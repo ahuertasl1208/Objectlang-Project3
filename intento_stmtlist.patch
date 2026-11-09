@@ -1,0 +1,210 @@
+diff --git a/src/main/rascal/Expressions.rsc b/src/main/rascal/Expressions.rsc
+index 1b1f5b9..aff8b32 100644
+--- a/src/main/rascal/Expressions.rsc
++++ b/src/main/rascal/Expressions.rsc
+@@ -6,7 +6,7 @@ extend Lexical;
+ // Espacios, tabulaciones y saltos de línea
+ layout Whitespace =
+     ([\ \t\n\r] | LayoutComment)*
+-    !>> [\ \t]
++    !>> [\ \t\n\r]
+     !>> "//";
+ 
+ // Interpolaciones dentro de strings
+@@ -48,10 +48,11 @@ syntax Primary =
+ syntax Postfix
+   = Primary
+   | memberAccess: Postfix "." Identifier
+-  | call: Postfix "(" {Expr ","}* ")"
++  | call: Postfix "(" ExprList ")"
+   ;
+ 
+ 
++
+ syntax UnaryExpr =
+     Postfix
+   | unaryMinus: "-" UnaryExpr
+@@ -134,3 +135,8 @@ syntax ExprInterpolation =
+ start syntax ExprInterpolationTest =
+     ExprInterpolation;
+ 
++syntax ExprList = {Expr ","}*;
++
++
++
++
+diff --git a/src/main/rascal/Lexical.rsc b/src/main/rascal/Lexical.rsc
+index 030b0e2..db8f4d6 100644
+--- a/src/main/rascal/Lexical.rsc
++++ b/src/main/rascal/Lexical.rsc
+@@ -12,6 +12,8 @@ keyword Keywords =
+   | "and" | "or" | "neg"
+   ;
+ 
++
++
+ // Agregar palabras reservadas para los tipos de datos requeridos
+ keyword TypeKeywords = "Int" | "Bool" | "Char" | "String";
+ 
+diff --git a/src/main/rascal/Structures.rsc b/src/main/rascal/Structures.rsc
+index 3455ea1..5af2092 100644
+--- a/src/main/rascal/Structures.rsc
++++ b/src/main/rascal/Structures.rsc
+@@ -3,16 +3,18 @@ module Structures
+ extend Expressions;
+   
+ syntax NewExpr
+-    = newWithArgs: "new" Type "(" {Expr ","}* ")" ClassBody?
++    = newWithArgs: "new" Type "(" ExprList ")" ClassBody?
+     | newWithBody: "new" Type ClassBody
+     | newWithoutArgs: "new" Type !>> "("
+     ;
+ 
++
+ // Integra la creación de objetos como expresión primaria
+ syntax Primary = NewExpr;
+ 
+ syntax OverrideDef 
+-  = overrideDef: "override" Identifier name "(" {MethodParam ","}* params ")" ":" Type returnType "=" Block body;
++  = overrideDef: "override" Identifier name "(" MethodParamList params ")" ":" Type returnType "=" Block body;
++
+ 
+ syntax ClassBody 
+   = classBody: "{" OverrideDef+ overrides "}";
+@@ -39,12 +41,29 @@ syntax VarDecl
+ syntax Assignment 
+   = assignStmt: Postfix target "=" Expr expr;
+ 
++syntax Block
++    = block: "{" Stmt* statements "}"
++    ;
++
++lexical StatementSeparator = [\n\r] !<< [\n\r];
++
++// Un separador que exige al menos un salto de línea (usando clase de caracteres léxicos)
++lexical Newline = [\n\r]+ ;
++
++// La lista exige que haya sentencias, y si hay varias, deben separarse por un salto de línea
++syntax StmtList = {Stmt Newline}*;
++
++syntax Block
++    = block: "{" StmtList statements "}"
++    ;
++
+ syntax Stmt 
+   = valStmt: ValDecl valDecl
+   | varStmt: VarDecl varDecl
+   | assignmentStmt: Assignment assignment
+   | forStmt: ForStmt forStmt
+-  | exprStmt: Expr expr ;
++  | exprStmt: Expr expr !>> "val" !>> "var" !>> "for" !>> "print" ; 
++
+ 
+ syntax ModuleItem 
+   = objectItem: ObjectDef objectDef
+@@ -77,7 +96,8 @@ syntax MethodParam
+   = methodParam: Identifier name ":" Type paramType;
+ 
+ syntax MethodDef 
+-  = methodDef: "method" "(" {MethodParam ","}* params ")" ReturnType? returnType Block? body;
++  = methodDef: "method" "(" MethodParamList params ")" ReturnType? returnType Block? body;
++
+ 
+ syntax ObjectDef
+     = objectDef: "object" !>> [a-zA-Z0-9_] TypeIdentifier name
+@@ -110,10 +130,8 @@ syntax ConstructorParam
+   = constructorParam: Mutability mutability Identifier name ":" Type paramType;
+ 
+ 
+-syntax Block
+-    = block: "{" {Stmt StatementSeparator}+ statements "}"
+-    | emptyBlock: "{" "}"
+-    ;
++
++
+ 
+ syntax ReturnType 
+   = returnTypeDef: ":" Type type;
+@@ -127,4 +145,5 @@ start syntax ValDeclTest = ValDecl;
+ start syntax StmtTest = Stmt;
+ start syntax BlockTest = Block;
+ 
+-lexical StatementSeparator = [\n\r] !<< [\n\r];
++syntax MethodParamList = {MethodParam ","}*;
++
+diff --git a/src/main/rascal/StructuresConverter.rsc b/src/main/rascal/StructuresConverter.rsc
+index d030bef..3f5121d 100644
+--- a/src/main/rascal/StructuresConverter.rsc
++++ b/src/main/rascal/StructuresConverter.rsc
+@@ -143,10 +143,11 @@ MethodParameter convertMethodParam(Tree current) {
+ // =======================================================
+ 
+ BlockNode convertBlock(Tree current) {
+-    list[Statement] stmts = extractStatements(current.args[2]);
+-    return blockNode(stmts);
++    return blockNode(extractStatements(current.args[2]));
+ }
+ 
++
++
+ list[Statement] extractStatements(Tree current) {
+     list[Statement] result = [];
+ 
+@@ -160,39 +161,31 @@ list[Statement] extractStatements(Tree current) {
+ }
+ 
+ Statement convertStatement(Tree current) {
+-    if (appl(prod(label("valStmt", _), _, _), _) := current) return convertStatement(current.args[0]);
+-    if (appl(prod(label("varStmt", _), _, _), _) := current) return convertStatement(current.args[0]);
+-    if (appl(prod(label("assignmentStmt", _), _, _), _) := current) return convertStatement(current.args[0]);
+-    if (appl(prod(label("forStmt", sort("Stmt")), _, _), _) := current) return convertStatement(current.args[0]);
+-    if (appl(prod(label("exprStmt", _), _, _), _) := current) return convertStatement(current.args[0]);
+-
+-    if (appl(prod(label("valDecl", _), _, _), _) := current) {
+-        str name = implode(#str, current.args[2]);
++    if (appl(prod(label("valStmt", _), _, _), _) := current) {
++        Tree valDeclTree = current.args[0];
++        str name = implode(#str, valDeclTree.args[2]);
+         list[TypeNode] typeAnn = [];
+-        if (appl(regular(opt(_)), [tTree]) := current.args[4]) typeAnn = [convertType(tTree.args[2])];
+-        return valDecl(name, typeAnn, convertExprTree(current.args[8], convertStructuralExpr));
++        if (appl(regular(opt(_)), [tTree]) := valDeclTree.args[4]) typeAnn = [convertType(tTree.args[2])];
++        return valDecl(name, typeAnn, convertExprTree(valDeclTree.args[8], convertStructuralExpr));
+     }
+-    if (appl(prod(label("varDecl", _), _, _), _) := current) {
+-        str name = implode(#str, current.args[2]);
++    if (appl(prod(label("varStmt", _), _, _), _) := current) {
++        Tree varDeclTree = current.args[0];
++        str name = implode(#str, varDeclTree.args[2]);
+         list[TypeNode] typeAnn = [];
+-        if (appl(regular(opt(_)), [tTree]) := current.args[4]) typeAnn = [convertType(tTree.args[2])];
+-        return varDecl(name, typeAnn, convertExprTree(current.args[8], convertStructuralExpr));
++        if (appl(regular(opt(_)), [tTree]) := varDeclTree.args[4]) typeAnn = [convertType(tTree.args[2])];
++        return varDecl(name, typeAnn, convertExprTree(varDeclTree.args[8], convertStructuralExpr));
+     }
+-
+-    if (appl(prod(label("assignStmt", _), _, _), _) := current) {
+-        return assignmentStmt(convertExprTree(current.args[0], convertStructuralExpr), convertExprTree(current.args[4], convertStructuralExpr));
++    if (appl(prod(label("assignmentStmt", _), _, _), _) := current) {
++        Tree assignTree = current.args[0];
++        return assignmentStmt(convertExprTree(assignTree.args[0], convertStructuralExpr), convertExprTree(assignTree.args[4], convertStructuralExpr));
+     }
+-
+-    if (appl(prod(label("forStmt", sort("ForStmt")), _, _), _) := current) {
+-        return forStmt(
+-            convertForBinding(current.args[4]), convertStatement(current.args[8])
+-        );
++    if (appl(prod(label("forStmt", sort("Stmt")), _, _), _) := current) {
++        Tree fStmtTree = current.args[0];
++        return forStmt(convertForBinding(fStmtTree.args[4]), convertStatement(fStmtTree.args[8]));
+     }
+-
+-    if (appl(prod(sort("Expr"), _, _), _) := current) {
+-        return exprStmt(convertExprTree(current));
++    if (appl(prod(label("exprStmt", _), _, _), _) := current) {
++        return exprStmt(convertExprTree(current.args[0]));
+     }
+-
+     throw "Statement no soportado: <current>";
+ }
+ 

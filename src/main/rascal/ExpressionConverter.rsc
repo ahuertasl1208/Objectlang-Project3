@@ -114,7 +114,7 @@ Expression convertExprTree(
     if (appl(prod(label("stringLiteral", _), _, _), _) := current) {
         list[StringPart] parts = [];
 
-        Tree stringItems = current.args[2];
+        Tree stringItems = current.args[1];
 
         for (item <- stringItems.args[0].args) {
             parts += convertStringPart(item, convertStructural);
