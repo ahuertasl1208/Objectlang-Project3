@@ -10,6 +10,7 @@ data Value
   | boolV(bool b)
   | charV(str c)
   | stringV(str s)
+  | rangeV(int from, int to)
   ;
 
 // El entorno
@@ -24,6 +25,7 @@ str toText(intV(int n)) = "<n>";
 str toText(boolV(bool b)) = "<b>";
 str toText(charV(str c)) = c;
 str toText(stringV(str s)) = s;
+str toText(rangeV(int a, int b)) = "<a> -\> <b>";
 
 // print y println
 Value eval(call(identifier("print"), [Expression arg]), Env env) {
@@ -48,6 +50,9 @@ Value eval(identifier(str name), Env env) {
     if (name in env) return env[name];
     throw "Variable no definida: <name>";
 }
+
+
+
 
 // Aritméticos 
 Value eval(addition(Expression l, Expression r), Env env) = intV(x + y) when intV(x) := eval(l, env), intV(y) := eval(r, env);
@@ -109,6 +114,14 @@ Value eval(unaryNeg(Expression e), Env env) = boolV(!b) when boolV(b) := eval(e,
 
 Value eval(grouped(Expression inner), Env env) = eval(inner, env);
 
+// Rangos (inclusivos)
+Value eval(range(Expression l, Expression r), Env env) = rangeV(x, y) when intV(x) := eval(l, env), intV(y) := eval(r, env);
+
+Value eval(inExpression(Expression e, Expression c), Env env) {
+    if (intV(x) := eval(e, env), rangeV(a, b) := eval(c, env)) return boolV(a <= x && x <= b);
+    throw "\'in\' espera un entero y un rango";
+}
+
 Value eval(conditional(Expression cond, Expression thn, Expression els), Env env) {
     if (boolV(true) := eval(cond, env)) return eval(thn, env);
     return eval(els, env);
@@ -160,6 +173,36 @@ tuple[Value, Env] exec(varDecl(str name, _, Expression expr), Env env) {
     Value v = eval(expr, env);
     return <v, env + (name : v)>;
 }
+
+// Asignación
+tuple[Value, Env] exec(assignmentStmt(identifier(str name), Expression expr), Env env) {
+    if (name notin env) throw "Variable no definida: <name>";
+    Value v = eval(expr, env);
+    return <v, env + (name : v)>;
+}
+
+// Ciclo for sobre rangos 
+// El cuerpo puede modificar variables de afuera, pero lo que declara
+// adentro (incluida la variable del ciclo) no sale del ciclo.
+tuple[Value, Env] exec(forStmt(forBinding(idPattern(str name), _, Expression expr), Statement body), Env env) {
+    if (rangeV(int a, int b) := eval(expr, env)) {
+        Env current = env;
+        list[int] values = a <= b ? [a..b + 1] : [];
+        for (int i <- values) {
+            tuple[Value, Env] res = exec(body, current + (name : intV(i)));
+            Env updated = (k : res[1][k] | k <- current, k != name);
+            if (name in current) updated[name] = current[name];
+            current = updated;
+        }
+        return <intV(0), current>;
+    }
+    throw "El for espera un rango";
+}
+
+tuple[Value, Env] exec(forStmt(forBinding(tuplePattern(_, _), _, _), _), Env env) {
+    throw "Patrón de tupla no soportado en ejecución";
+}
+
 
 tuple[Value, Env] exec(exprStmt(Expression expr), Env env) {
     Value v = eval(expr, env);
