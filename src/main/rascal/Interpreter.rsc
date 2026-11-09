@@ -3,6 +3,7 @@ module Interpreter
 import ObjectlangAST; 
 import IO;
 import String;
+import List;
 
 // Los valores de ejecución
 data Value
@@ -11,21 +12,37 @@ data Value
   | charV(str c)
   | stringV(str s)
   | rangeV(int from, int to)
+  | objectV(str typeName, map[str, Value] fields, map[str, OverrideDefinition] overrides)
   ;
 
 // El entorno
 alias Env = map[str, Value];
 
-void runProgram(moduleProgram(_, Statement main)) {
+// Tablas globales del programa: definiciones de objetos y métodos asignados
+map[str, Declaration] objectTable = ();
+map[str, map[str, Declaration]] methodTable = ();
+
+void runProgram(moduleProgram(list[Declaration] decls, Statement main)) {
+    objectTable = ();
+    methodTable = ();
+    for (Declaration d <- decls) register(d);
     exec(main, ());
 }
 
+void register(decl:objectDeclaration(str name, _, _, _)) {
+    objectTable[name] = decl;
+}
+
+void register(methodAssignment(str target, str name, Declaration def)) {
+    methodTable[target] = (methodTable[target] ? ()) + (name : def);
+}
 // toText: Representación textual
 str toText(intV(int n)) = "<n>";
 str toText(boolV(bool b)) = "<b>";
 str toText(charV(str c)) = c;
 str toText(stringV(str s)) = s;
 str toText(rangeV(int a, int b)) = "<a> -\> <b>";
+str toText(objectV(str t, _, _)) = t;
 
 // print y println
 Value eval(call(identifier("print"), [Expression arg]), Env env) {
@@ -113,6 +130,66 @@ Value eval(logicalOr(Expression l, Expression r), Env env) {
 Value eval(unaryNeg(Expression e), Env env) = boolV(!b) when boolV(b) := eval(e, env);
 
 Value eval(grouped(Expression inner), Env env) = eval(inner, env);
+
+// Objetos
+str typeNameOf(simpleType(str n)) = n;
+str typeNameOf(genericType(str n, _)) = n;   // los genéricos se borran en ejecución
+default str typeNameOf(TypeNode t) { throw "No se pueden crear objetos de un tipo primitivo"; }
+
+Value eval(newObject(TypeNode t, list[Expression] args, list[OverrideDefinition] overrides), Env env) {
+    str name = typeNameOf(t);
+    if (name in objectTable, objectDeclaration(_, _, _, list[ConstructorParameter] params) := objectTable[name]) {
+        list[Value] argValues = [eval(a, env) | a <- args];
+        if (size(params) != size(argValues)) {
+            throw "<name> espera <size(params)> argumentos y recibió <size(argValues)>";
+        }
+        map[str, Value] fields = (params[i].name : argValues[i] | i <- [0..size(params)]);
+        map[str, OverrideDefinition] ovs = (ov.name : ov | ov <- overrides);
+        return objectV(name, fields, ovs);
+    }
+    throw "Objeto no definido: <name>";
+}
+
+// Acceso a un campo: obj.campo
+Value eval(memberAccess(Expression target, str field), Env env) {
+    if (objectV(str t, map[str, Value] fields, _) := eval(target, env)) {
+        if (field in fields) return fields[field];
+        throw "El objeto <t> no tiene el campo <field>";
+    }
+    throw "Solo se puede acceder a campos de un objeto: <field>";
+}
+
+// Llamada a un método: obj.metodo(args)
+Value eval(call(memberAccess(Expression target, str m), list[Expression] args), Env env) {
+    if (objectV(str t, map[str, Value] fields, map[str, OverrideDefinition] overrides) := eval(target, env)) {
+        list[Value] argValues = [eval(a, env) | a <- args];
+        if (m in overrides, overrideDefinition(_, list[MethodParameter] ps, _, BlockNode body) := overrides[m]) {
+            return invoke(t, m, ps, body, fields, argValues);
+        }
+        if (methodDefinition(list[MethodParameter] ps, _, list[BlockNode] bodies) := findMethod(t, m)) {
+            if (bodies == []) throw "El método <t>.<m> es abstracto y no tiene implementación";
+            return invoke(t, m, ps, bodies[0], fields, argValues);
+        }
+    }
+    throw "Solo se pueden llamar métodos sobre objetos: <m>";
+}
+
+Declaration findMethod(str typeName, str m) {
+    if (typeName in methodTable, m in methodTable[typeName]) return methodTable[typeName][m];
+    if (typeName in objectTable, objectDeclaration(_, _, [TypeNode sup], _) := objectTable[typeName]) {
+        return findMethod(typeNameOf(sup), m);
+    }
+    throw "Método no encontrado: <typeName>.<m>";
+}
+
+// Dentro del método se ven los campos del objeto y los parámetros.
+Value invoke(str t, str m, list[MethodParameter] ps, BlockNode body, map[str, Value] fields, list[Value] argValues) {
+    if (size(ps) != size(argValues)) {
+        throw "<t>.<m> espera <size(ps)> argumentos y recibió <size(argValues)>";
+    }
+    Env methodEnv = fields + (ps[i].name : argValues[i] | i <- [0..size(ps)]);
+    return eval(blockExpression(body), methodEnv);
+}
 
 // Rangos (inclusivos)
 Value eval(range(Expression l, Expression r), Env env) = rangeV(x, y) when intV(x) := eval(l, env), intV(y) := eval(r, env);
